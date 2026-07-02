@@ -25,6 +25,7 @@ import {
   setSubmissionThreadId,
   updateSubmissionByUuid,
 } from "@/lib/server/repositories/submission-repository"
+import { resolvePreviousWrDisplayRow, shouldCreateWrThread, type PreviousWrDisplayRow } from "@/lib/server/ux-rules"
 
 const botModeratorUser: AuthUser = {
   uuid: "discord-bot",
@@ -94,25 +95,12 @@ function normalizeDiscordId(value: unknown) {
   return discordId.length > 0 ? discordId : null
 }
 
-type PreviousWrDisplayRow = {
-  submission_uuid: string
-  player_uuid: string
-  player_name: string
-  time: number
-  date: string
-  previous_thread_id: string | null
-}
-
 async function getPreviousWrToDisplay(
   db: D1Database,
   trialName: string,
   currentSubmissionUuid: string,
   previousWrRow: PreviousWrDisplayRow | null
 ) {
-  if (previousWrRow && previousWrRow.submission_uuid !== currentSubmissionUuid) {
-    return previousWrRow
-  }
-
   const fallbackRow = await db.prepare(
     `SELECT
       uuid AS submission_uuid,
@@ -134,11 +122,11 @@ async function getPreviousWrToDisplay(
     .bind(trialName, currentSubmissionUuid)
     .first<PreviousWrDisplayRow | null>()
 
-  if (fallbackRow && fallbackRow.submission_uuid !== currentSubmissionUuid) {
-    return fallbackRow
-  }
-
-  return null
+  return resolvePreviousWrDisplayRow({
+    currentSubmissionUuid,
+    previousWrRow,
+    fallbackWrRow: fallbackRow,
+  })
 }
 
 export async function resolveModeratorUser(request: Request, env: CloudflareEnv, sessionUser: AuthUser | null, discordId: unknown) {
@@ -408,7 +396,6 @@ export async function patchSubmission(
       const previousWrToShow = submissionIsWr
         ? await getPreviousWrToDisplay(db, submission.trial_name, updatedSubmission.uuid, previousWrRow)
         : null
-      const hasDifferentPreviousWr = previousWrRow === null || previousWrToShow?.submission_uuid !== updatedSubmission.uuid
       const hasExistingThread = Boolean(submission.thread_id)
       const shouldUpdateThread = hasExistingThread && (stateChanged || timeChanged || noteChanged)
 
@@ -446,7 +433,12 @@ export async function patchSubmission(
       }
 
       const shouldCreateThread = !hasExistingThread && (
-        (submissionIsWr && hasDifferentPreviousWr)
+        shouldCreateWrThread({
+          isWr: submissionIsWr,
+          hasExistingThread,
+          currentSubmissionUuid: updatedSubmission.uuid,
+          previousWrRow: previousWrToShow,
+        })
         || (newState === "approved" && previousState !== "approved" && Number(updatedSubmission.player_score) > 0.3)
       )
 

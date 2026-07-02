@@ -25,6 +25,12 @@ function isAllowedTrial(value: unknown): value is (typeof trials)[number] {
   return typeof value === "string" && trials.includes(value as (typeof trials)[number])
 }
 
+function createSubmissionError(message: string, code: string) {
+  const error = new Error(message) as Error & { code?: string }
+  error.code = code
+  return error
+}
+
 function parseProofLink(value: unknown) {
   if (typeof value !== "string" || value.trim() === "") {
     return null
@@ -68,7 +74,7 @@ async function fetchMedalVideo(link: string) {
   })
 
   if (!response.ok) {
-    throw new Error("Unable to resolve the Medal video URL")
+    throw createSubmissionError("Medal link could not be processed. Please try another proof link or upload a video file.", "medal_download_failed")
   }
 
   const contentType = response.headers.get("content-type") || ""
@@ -91,7 +97,7 @@ async function fetchMedalVideo(link: string) {
   }
 
   if (typeof videoUrl !== "string") {
-    throw new Error("Medal did not return a video URL")
+    throw createSubmissionError("Medal link could not be processed. Please try another proof link or upload a video file.", "medal_download_failed")
   }
 
   const parsedVideoUrl = new URL(videoUrl)

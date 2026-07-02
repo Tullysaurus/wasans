@@ -6,6 +6,7 @@ import { PlusIcon, Trash2Icon, UploadIcon } from "lucide-react"
 import { apiV1 } from "@/lib/api"
 import { TrialName, trials } from "@/lib/trials"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { getSubmissionErrorMessage, getSubmissionProofHint } from "@/lib/server/ux-rules"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,7 +77,7 @@ type AuthResponse = {
 
 type UploadState = {
   progress: number
-  status: "idle" | "uploading" | "processing" | "done" | "error"
+  status: "idle" | "validating" | "uploading" | "processing" | "done" | "error"
   message?: string
 }
 
@@ -287,17 +288,17 @@ function uploadSubmissions(
 
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) {
-        onProgress(50, "uploading", hasMedalLink ? "Uploading submission" : "Uploading submission")
+        onProgress(50, "uploading", hasMedalLink ? "Checking proof link" : "Preparing upload")
         return
       }
 
       const progress = Math.min(Math.round((event.loaded / event.total) * 90), 90)
-      onProgress(progress, "uploading", hasMedalLink ? `Uploading ${progress}%` : `Uploading ${progress}%`)
+      onProgress(progress, "uploading", hasMedalLink ? `Uploading proof data ${progress}%` : `Uploading proof data ${progress}%`)
     }
 
     request.upload.onload = () => {
       if (hasMedalLink) {
-        onProgress(55, "uploading", "Downloading proof video")
+        onProgress(55, "processing", "Downloading proof video")
       } else {
         onProgress(90, "processing", "Processing submissions")
       }
@@ -319,8 +320,9 @@ function uploadSubmissions(
       }
 
       const errorMessage = getApiErrorMessage(json?.error, "Unable to create submission")
+      const friendlyMessage = getSubmissionErrorMessage(errorMessage.includes("Medal") || errorMessage.includes("H.264") ? "medal_download_failed" : undefined)
 
-      reject(new Error(errorMessage))
+      reject(new Error(friendlyMessage || errorMessage))
     }
 
     request.onerror = () => {
@@ -521,7 +523,7 @@ export default function NewSubmissionPage() {
       Object.fromEntries(
         submissions.map((submission) => [
           submission.id,
-          { progress: 0, status: "uploading" as const, message: "Preparing upload" },
+          { progress: 0, status: "validating" as const, message: "Checking proof inputs" },
         ])
       )
     )
@@ -603,6 +605,12 @@ export default function NewSubmissionPage() {
         </div>
       </div>
 
+      <Alert>
+        <AlertDescription>
+          Step 1: choose a trial and enter a time. Step 2: add a Medal link or upload a video file. Step 3: submit for review.
+        </AlertDescription>
+      </Alert>
+
       {loadingContext && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="size-4" />
@@ -653,6 +661,10 @@ export default function NewSubmissionPage() {
           const isSlowerThanPb =
             Number.isFinite(uploadedTime) && personalBest && uploadedTime > personalBest
           const score = scoreFor(worldRecord, submission.time, submission.trial_name, personalBest)
+          const proofHint = getSubmissionProofHint({
+            hasFile: Boolean(submission.proof_file),
+            hasUrl: Boolean(submission.proof_url.trim()),
+          })
 
           return (
             <Card key={submission.id}>
@@ -761,6 +773,8 @@ export default function NewSubmissionPage() {
                     ) : null}
                   </div>
                 </div>
+
+                <p className="text-sm text-muted-foreground">{proofHint}</p>
 
                 {uploadState && uploadState.status !== "idle" && (
                   <div className="grid gap-2">

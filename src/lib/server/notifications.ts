@@ -1,5 +1,6 @@
 import "server-only"
 import { getCloudflareContext } from "@opennextjs/cloudflare" 
+import { formatPreviousWrLine } from "@/lib/server/ux-rules"
 
 export type ApprovedHighScoreRun = {
   submission_uuid: string
@@ -287,11 +288,14 @@ export function reportMissingApprovedThread(run: ApprovedHighScoreRun) {
   lines.push(`*${oldScoreFormatted}* -> *${newScoreFormatted}*`)
 
   if (run.previous_wr_time && run.previous_wr_player_name) {
-    if (run.previous_wr_thread_id) {
-      lines.push(`Previous WR: ${run.previous_wr_time.toFixed(3)} by ${run.previous_wr_player_name} <#${run.previous_wr_thread_id}>`)
-    } else {
-      lines.push(`Previous WR: ${run.previous_wr_time.toFixed(3)} by ${run.previous_wr_player_name}`)
-    }
+    lines.push(formatPreviousWrLine({
+      submission_uuid: run.previous_wr_submission_uuid ?? "",
+      player_uuid: "",
+      player_name: run.previous_wr_player_name,
+      time: run.previous_wr_time,
+      date: "",
+      previous_thread_id: run.previous_wr_thread_id ?? null,
+    }) ?? "")
   }
 
   if (run.averageScoreDelta !== undefined) {
@@ -405,12 +409,15 @@ export async function postApprovedRun(run: ApprovedHighScoreRun): Promise<{ thre
     lines.push(`${oldTimeFormatted} -> ${newTimeFormatted}`)
     lines.push(`*${oldScoreFormatted}* -> *${newScoreFormatted}*`)
 
-    if (run.is_wr) {
-      if (run.previous_wr_thread_id) {
-        lines.push(`Previous WR: <#${run.previous_wr_thread_id}>`)
-      } else if (run.previous_wr_time && run.previous_wr_player_name) {
-        lines.push(`Previous WR: ${run.previous_wr_time.toFixed(3)} by ${run.previous_wr_player_name}`)
-      }
+    if (run.is_wr && run.previous_wr_time && run.previous_wr_player_name) {
+      lines.push(formatPreviousWrLine({
+        submission_uuid: run.previous_wr_submission_uuid ?? "",
+        player_uuid: "",
+        player_name: run.previous_wr_player_name,
+        time: run.previous_wr_time,
+        date: "",
+        previous_thread_id: run.previous_wr_thread_id ?? null,
+      }) ?? "")
     }
 
     if (run.averageScoreDelta !== undefined) {
@@ -487,12 +494,15 @@ export async function updateSubmissionThreadContent(
       lines.push(`${oldTimeFormatted} -> ${newTimeFormatted}`)
       lines.push(`*${oldScoreFormatted}* -> *${newScoreFormatted}*`)
 
-      if (run.is_wr) {
-        if (run.previous_wr_thread_id) {
-          lines.push(`Previous WR: <#${run.previous_wr_thread_id}>`)
-        } else if (run.previous_wr_time && run.previous_wr_player_name) {
-          lines.push(`Previous WR: ${run.previous_wr_time.toFixed(3)} by ${run.previous_wr_player_name}`)
-        }
+      if (run.is_wr && run.previous_wr_time && run.previous_wr_player_name) {
+        lines.push(formatPreviousWrLine({
+          submission_uuid: run.previous_wr_submission_uuid ?? "",
+          player_uuid: "",
+          player_name: run.previous_wr_player_name,
+          time: run.previous_wr_time,
+          date: "",
+          previous_thread_id: run.previous_wr_thread_id ?? null,
+        }) ?? "")
       }
 
       if (scoreDeltaLine) {

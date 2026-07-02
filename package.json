@@ -7,6 +7,7 @@
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import tsx --test src/lib/server/__tests__/*.test.ts",
     "clean:opennext": "node -e \"const fs=require('fs');['.next','.open-next'].forEach((path)=>fs.rmSync(path,{recursive:true,force:true}))\"",
     "preview": "npm run clean:opennext && opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "npm run clean:opennext && opennextjs-cloudflare build && opennextjs-cloudflare deploy",
@@ -48,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "wrangler": "^4.85.0"
   }

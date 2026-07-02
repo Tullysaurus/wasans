@@ -4,6 +4,7 @@ import { getRequestId, jsonError, jsonResponse } from "@/lib/server/http"
 import { querySubmissions } from "@/lib/server/services/submission-query-service"
 import { createSubmissionsFromRequest } from "@/lib/server/services/submission-write-service"
 import { enforceRateLimit, getRateLimitKey } from "@/lib/server/services/rate-limit-service"
+import { getSubmissionErrorMessage } from "@/lib/server/ux-rules"
 import {
   buildRequestHash,
   lookupIdempotentResponse,
@@ -157,7 +158,9 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create submission"
+    const code = error instanceof Error && "code" in error ? String((error as Error & { code?: string }).code ?? "") : ""
+    const fallbackMessage = error instanceof Error ? error.message : "Unable to create submission"
+    const message = getSubmissionErrorMessage(code) || fallbackMessage
     const status = message.includes("not found") ? 404 : message.includes("Authentication") ? 401 : 400
     return jsonError(message, status, {
       code: status === 404 ? "not_found" : status === 401 ? "unauthorized" : "validation_error",

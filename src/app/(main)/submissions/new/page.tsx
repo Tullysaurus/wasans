@@ -6,7 +6,7 @@ import { PlusIcon, Trash2Icon, UploadIcon } from "lucide-react"
 import { apiV1 } from "@/lib/api"
 import { TrialName, trials } from "@/lib/trials"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getSubmissionErrorMessage, getSubmissionProofHint } from "@/lib/server/ux-rules"
+import { getSubmissionErrorMessage, getSubmissionProofHint, getUploadProgressMessage } from "@/lib/server/ux-rules"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -288,19 +288,18 @@ function uploadSubmissions(
 
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) {
-        onProgress(50, "uploading", hasMedalLink ? "Checking proof link" : "Preparing upload")
+        onProgress(50, "uploading", getUploadProgressMessage({ status: "uploading", progress: 50, hasMedalLink }))
         return
       }
 
       const progress = Math.min(Math.round((event.loaded / event.total) * 90), 90)
-      onProgress(progress, "uploading", hasMedalLink ? `Uploading proof data ${progress}%` : `Uploading proof data ${progress}%`)
+      onProgress(progress, "uploading", getUploadProgressMessage({ status: "uploading", progress, hasMedalLink }))
     }
 
     request.upload.onload = () => {
-      if (hasMedalLink) {
-        onProgress(55, "processing", "Downloading proof video")
-      } else {
-        onProgress(90, "processing", "Processing submissions")
+      onProgress(55, "processing", getUploadProgressMessage({ status: "processing", progress: 55, hasMedalLink }))
+      if (!hasMedalLink) {
+        onProgress(90, "processing", getUploadProgressMessage({ status: "processing", progress: 90, hasMedalLink }))
       }
     }
 
@@ -314,7 +313,7 @@ function uploadSubmissions(
       }
 
       if (request.status >= 200 && request.status < 300) {
-        onProgress(100, "done", "Uploaded")
+        onProgress(100, "done", getUploadProgressMessage({ status: "done", progress: 100, hasMedalLink }))
         resolve(json || {})
         return
       }

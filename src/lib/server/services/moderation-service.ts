@@ -25,7 +25,12 @@ import {
   setSubmissionThreadId,
   updateSubmissionByUuid,
 } from "@/lib/server/repositories/submission-repository"
-import { resolvePreviousWrDisplayRow, shouldCreateWrThread, type PreviousWrDisplayRow } from "@/lib/server/ux-rules"
+import {
+  resolvePreviousWrDisplayRow,
+  shouldCreateWrThread,
+  shouldNotifyModeratorOfChange,
+  type PreviousWrDisplayRow,
+} from "@/lib/server/ux-rules"
 
 const botModeratorUser: AuthUser = {
   uuid: "discord-bot",
@@ -365,7 +370,15 @@ export async function patchSubmission(
       const newRankName = getRankLabel(newPlayerScore)
       const rankChanged = oldRankName !== null && newRankName !== null && oldRankName !== newRankName
 
-      if ((stateChanged || noteChanged || scoreChanged || rankChanged) && oldPlayer?.player_id) {
+      const notificationPlayerId = oldPlayer?.player_id ?? null
+
+      if (shouldNotifyModeratorOfChange({
+        oldPlayerId: notificationPlayerId,
+        stateChanged,
+        noteChanged,
+        scoreChanged,
+        rankChanged,
+      })) {
         let content = `Your submission https://wasans.tully.sh/submissions/${uuid} has been moderated by ${user.player_name}`
 
         if (stateChanged) {
@@ -387,9 +400,11 @@ export async function patchSubmission(
           content += `\n\nRank\n${oldRankName} -> ${newRankName} (${rankDirection})`
         }
 
-        await sendDiscordDm(oldPlayer.player_id, content).catch((error) => {
-          console.error("Failed to send submission moderation DM:", error)
-        })
+        if (notificationPlayerId) {
+          await sendDiscordDm(notificationPlayerId, content).catch((error) => {
+            console.error("Failed to send submission moderation DM:", error)
+          })
+        }
       }
 
       const submissionIsWr = wrRow?.submission_uuid === uuid

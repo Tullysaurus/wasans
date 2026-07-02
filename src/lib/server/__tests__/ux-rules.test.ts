@@ -6,6 +6,8 @@ import {
   formatPreviousWrLine,
   getSubmissionProofHint,
   getSubmissionErrorMessage,
+  shouldNotifyModeratorOfChange,
+  getUploadProgressMessage,
 } from "../ux-rules"
 
 test("resolvePreviousWrDisplayRow prefers a different submission than the current WR", () => {
@@ -89,4 +91,25 @@ test("proof hints explain what the user needs to do next", () => {
 test("submission errors use specific language for Medal processing problems", () => {
   assert.match(getSubmissionErrorMessage("medal_download_failed"), /Medal link could not be processed/)
   assert.match(getSubmissionErrorMessage("video_invalid"), /Only H.264 MP4 video files are supported/)
+})
+
+test("moderation notifications only fire for meaningful changes", () => {
+  assert.equal(
+    shouldNotifyModeratorOfChange({ oldPlayerId: "player-1", stateChanged: true, noteChanged: false, scoreChanged: false, rankChanged: false }),
+    true
+  )
+  assert.equal(
+    shouldNotifyModeratorOfChange({ oldPlayerId: null, stateChanged: true, noteChanged: false, scoreChanged: false, rankChanged: false }),
+    false
+  )
+  assert.equal(
+    shouldNotifyModeratorOfChange({ oldPlayerId: "player-1", stateChanged: false, noteChanged: false, scoreChanged: false, rankChanged: false }),
+    false
+  )
+})
+
+test("upload progress messaging is specific to each submission stage", () => {
+  assert.match(getUploadProgressMessage({ status: "validating", progress: 0, hasMedalLink: false }), /Checking proof inputs/)
+  assert.match(getUploadProgressMessage({ status: "processing", progress: 55, hasMedalLink: true }), /Downloading proof video/)
+  assert.equal(getUploadProgressMessage({ status: "done", progress: 100, hasMedalLink: false }), "Submission ready")
 })

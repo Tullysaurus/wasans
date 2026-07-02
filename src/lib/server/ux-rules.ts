@@ -91,3 +91,55 @@ export function getSubmissionErrorMessage(code: string | null | undefined) {
       return "We could not process that submission. Please check your inputs and try again."
   }
 }
+
+export function shouldNotifyModeratorOfChange({
+  oldPlayerId,
+  stateChanged,
+  noteChanged,
+  scoreChanged,
+  rankChanged,
+}: {
+  oldPlayerId: string | null | undefined
+  stateChanged: boolean
+  noteChanged: boolean
+  scoreChanged: boolean
+  rankChanged: boolean
+}) {
+  if (!oldPlayerId) {
+    return false
+  }
+
+  return stateChanged || noteChanged || scoreChanged || rankChanged
+}
+
+export function getUploadProgressMessage({
+  status,
+  progress,
+  hasMedalLink,
+}: {
+  status: "idle" | "validating" | "uploading" | "processing" | "done" | "error"
+  progress: number
+  hasMedalLink: boolean
+}) {
+  if (status === "validating") {
+    return "Checking proof inputs"
+  }
+
+  if (status === "processing") {
+    if (hasMedalLink) {
+      return progress >= 55 ? "Downloading proof video" : "Preparing proof download"
+    }
+
+    return progress >= 90 ? "Processing submissions" : "Preparing upload"
+  }
+
+  if (status === "done") {
+    return "Submission ready"
+  }
+
+  if (status === "error") {
+    return "Submission could not be completed"
+  }
+
+  return hasMedalLink ? `Uploading proof data ${progress}%` : `Uploading proof data ${progress}%`
+}

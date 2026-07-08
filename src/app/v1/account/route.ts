@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare"
+import { accountDeletePhrase } from "@/lib/account-deletion"
 import { getAuthUser } from "@/lib/server/auth"
-import { getRequestId, jsonError } from "@/lib/server/http"
+import { getRequestId, jsonError, validationError } from "@/lib/server/http"
 import { appendExpiredAuthCookies, deleteAccount } from "@/lib/server/services/account-service"
 import { enforceRateLimit, getRateLimitKey } from "@/lib/server/services/rate-limit-service"
 
@@ -29,6 +30,11 @@ export async function DELETE(request: Request) {
       details: { retry_after: rate.retryAfter },
       headers: { "retry-after": String(rate.retryAfter) },
     })
+  }
+
+  const body = await request.json().catch(() => null) as { confirmation?: unknown } | null
+  if (!body || body.confirmation !== accountDeletePhrase) {
+    return validationError(`Type ${accountDeletePhrase} to confirm account deletion`, requestId)
   }
 
   await deleteAccount(env.wasans, user)

@@ -23,8 +23,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
+import { accountDeletePhrase } from "@/lib/account-deletion"
 import { apiV1 } from "@/lib/api"
 
 type SettingsContextValue = {
@@ -90,6 +92,7 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
   const [updatingScore, setUpdatingScore] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteText, setDeleteText] = useState("")
   const [accountError, setAccountError] = useState<string | null>(null)
 
   if (!settings) {
@@ -118,6 +121,11 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
 
     setAccountError(null)
 
+    if (action === "delete" && deleteText !== accountDeletePhrase) {
+      setAccountError(`Type ${accountDeletePhrase} to confirm.`)
+      return
+    }
+
     if (action === "deactivate") {
       setDeactivating(true)
     } else {
@@ -128,6 +136,8 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
       const response = await fetch(apiV1(action === "deactivate" ? "/account/deactivate" : "/account"), {
         method: action === "deactivate" ? "POST" : "DELETE",
         cache: "no-store",
+        headers: action === "delete" ? { "content-type": "application/json" } : undefined,
+        body: action === "delete" ? JSON.stringify({ confirmation: deleteText }) : undefined,
       })
 
       if (!response.ok) {
@@ -236,31 +246,57 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
                     </AlertDialogContent>
                   </AlertDialog>
 
-                  <AlertDialog>
+                  <AlertDialog
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setAccountError(null)
+                      } else {
+                        setDeleteText("")
+                      }
+                    }}
+                  >
                     <AlertDialogTrigger asChild>
                       <Button type="button" variant="destructive" size="sm" disabled={deactivating || deleting}>
                         <Trash2Icon />
                         Delete
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent size="sm">
+                    <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete account?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This is permanent. Discord login data is removed, but public submissions, scores, and videos stay as deleted account.
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-3 text-left">
+                            <p>This is permanent. Your Discord login/account data and sessions will be deleted, and you will be logged out.</p>
+                            <ul className="list-disc space-y-1 pl-5">
+                              <li>Public submissions, scores, PBs, WRs, and proof videos will stay public.</li>
+                              <li>Public records connected to this account will show as Deleted Account.</li>
+                              <li>This does not delete proof videos from R2.</li>
+                            </ul>
+                          </div>
                         </AlertDialogDescription>
                       </AlertDialogHeader>
+                      <label className="grid gap-2 text-sm">
+                        <span className="text-muted-foreground">Type {accountDeletePhrase} to confirm.</span>
+                        <Input
+                          value={deleteText}
+                          onChange={(event) => setDeleteText(event.target.value)}
+                          disabled={deleting}
+                          autoComplete="off"
+                          aria-invalid={deleteText.length > 0 && deleteText !== accountDeletePhrase}
+                        />
+                      </label>
+                      {accountError ? <p className="text-xs text-destructive">{accountError}</p> : null}
                       <AlertDialogFooter>
                         <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           variant="destructive"
-                          disabled={deleting}
+                          disabled={deleting || deleteText !== accountDeletePhrase}
                           onClick={(event) => {
                             event.preventDefault()
                             void runAccountAction("delete")
                           }}
                         >
-                          Delete
+                          {deleting ? "Deleting..." : "Delete forever"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

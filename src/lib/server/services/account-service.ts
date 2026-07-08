@@ -2,7 +2,7 @@ import "server-only"
 import type { AuthUser } from "@/lib/server/auth"
 import { ensurePlayerAvatarColumns } from "@/lib/server/player-avatar-schema"
 
-const deletedAccountName = "deleted account"
+const deletedAccountName = "Deleted Account"
 
 export function getCookie(request: Request, name: string) {
   const cookie = request.headers.get("cookie")

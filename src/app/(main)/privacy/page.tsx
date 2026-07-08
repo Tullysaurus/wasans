@@ -28,6 +28,31 @@ const publicData = [
   "Personal bests, world records, public score videos, and Discord submission thread links when used",
 ]
 
+const legalBasis = [
+  "Account/login data is processed to provide the Discord login/account service.",
+  "Public scores, submissions, proof videos, PBs, WRs, and leaderboard data are processed to provide the community leaderboard and submission system.",
+  "Security logs, audit logs, moderation notes, and error logs are processed for legitimate interests such as security, abuse prevention, moderation, debugging, and protecting the integrity of the leaderboard.",
+  "Deletion and privacy requests are processed to comply with legal obligations.",
+]
+
+const retentionItems = [
+  "Account/login data is kept while the account exists.",
+  "OAuth tokens and sessions are removed when the account is deleted.",
+  "Public submissions, scores, PBs, WRs, and proof videos may remain after deletion because they are part of the public leaderboard/archive.",
+  "Deleted accounts are shown as Deleted Account.",
+  "Logs are kept only as long as reasonably needed for security, moderation, debugging, and audit purposes.",
+  "Data may be kept longer if needed to handle abuse, disputes, security issues, or legal obligations.",
+]
+
+const userRights = [
+  "Access to your data",
+  "Correction of inaccurate data",
+  "Deletion",
+  "Restriction",
+  "Objection",
+  "Portability, where applicable",
+]
+
 const localStorageItems = [
   "A session cookie for logged-in accounts",
   "Short-lived Discord OAuth state cookies during login",
@@ -45,10 +70,15 @@ export default function PrivacyPage() {
       </div>
 
       <SectionCard title="Who to contact">
-        <p className="text-sm leading-6 text-muted-foreground">
-          This website is operated by the website operators and project maintainers. For privacy questions, account deletion, or data requests, email{" "}
-          <a href={`mailto:${legalContactEmail}`} className="text-primary underline underline-offset-4">{legalContactEmail}</a>.
-        </p>
+        <div className="space-y-3 text-sm leading-6 text-muted-foreground">
+          <p>
+            The controller/operator for this site is currently <span className="font-medium text-foreground">The Wasans website operators and project maintainers</span>. There is no formal company or legal entity yet, so this may be updated if the project structure changes.
+          </p>
+          <p>
+            For privacy questions, account deletion, or data requests, email{" "}
+            <a href={`mailto:${legalContactEmail}`} className="text-primary underline underline-offset-4">{legalContactEmail}</a>.
+          </p>
+        </div>
       </SectionCard>
 
       <SectionCard title="Discord login data">
@@ -82,9 +112,17 @@ export default function PrivacyPage() {
             ))}
           </ul>
           <p>
-            Public submissions, scores, and videos can stay public after account deletion. Deleted accounts are shown as deleted account.
+            Public submissions, scores, and videos can stay public after account deletion. Deleted accounts are shown as Deleted Account.
           </p>
         </div>
+      </SectionCard>
+
+      <SectionCard title="Legal basis">
+        <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+          {legalBasis.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SectionCard>
 
       <SectionCard title="Submissions and proof videos">
@@ -113,9 +151,23 @@ export default function PrivacyPage() {
         </div>
       </SectionCard>
 
+      <SectionCard title="Data retention">
+        <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+          {retentionItems.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SectionCard>
+
       <SectionCard title="Third-party services">
         <p className="text-sm leading-6 text-muted-foreground">
           The site uses Discord for login and community features, Cloudflare for hosting/database/video storage, and proof providers like Medal when resolving submitted proof links. These services may process data under their own policies.
+        </p>
+      </SectionCard>
+
+      <SectionCard title="International transfers">
+        <p className="text-sm leading-6 text-muted-foreground">
+          Third-party services such as Discord, Cloudflare, and proof/video providers may process data outside the EU/EEA. Where required, appropriate safeguards or lawful transfer mechanisms should be used.
         </p>
       </SectionCard>
 
@@ -126,7 +178,7 @@ export default function PrivacyPage() {
           </p>
           <p>
             You can delete your account in Settings or request deletion by emailing{" "}
-            <a href={`mailto:${legalContactEmail}`} className="text-primary underline underline-offset-4">{legalContactEmail}</a>. Deletion removes Discord login data, OAuth tokens, active sessions, and personal account identity from the account row. Public submissions, scores, and proof videos stay available as deleted account.
+            <a href={`mailto:${legalContactEmail}`} className="text-primary underline underline-offset-4">{legalContactEmail}</a>. Deletion removes Discord login data, OAuth tokens, active sessions, and personal account identity from the account row. Public submissions, scores, PBs, WRs, and proof videos stay available as Deleted Account.
           </p>
         </div>
       </SectionCard>
@@ -137,10 +189,22 @@ export default function PrivacyPage() {
         </p>
       </SectionCard>
 
-      <SectionCard title="Your choices">
-        <p className="text-sm leading-6 text-muted-foreground">
-          You can use public pages without logging in. If you log in, you can manage account deactivation or deletion in Settings. You can also contact the project maintainers to ask about access, correction, deletion, or privacy concerns.
-        </p>
+      <SectionCard title="Your choices and rights">
+        <div className="space-y-3 text-sm leading-6 text-muted-foreground">
+          <p>
+            You can use public pages without logging in. If you log in, you can manage account deactivation or deletion in Settings. You can also email{" "}
+            <a href={`mailto:${legalContactEmail}`} className="text-primary underline underline-offset-4">{legalContactEmail}</a>{" "}
+            to request:
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            {userRights.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p>
+            Some rights may have limits, especially for public leaderboard/submission records, moderation integrity, security, or legal reasons. You may complain to your local data protection authority, or in Finland to the Office of the Data Protection Ombudsman.
+          </p>
+        </div>
       </SectionCard>
 
       <SectionCard title="Terms">

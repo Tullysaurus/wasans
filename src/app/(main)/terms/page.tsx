@@ -18,7 +18,7 @@ const usageRules = [
 const publicDataRules = [
   "Profiles, scores, submissions, personal bests, world records, moderator notes, and proof videos may be public.",
   "By submitting a score, you confirm you have the right to share the proof and let the project maintainers host, display, review, and moderate it.",
-  "Public score history may stay visible even if your account is deleted, but deleted accounts are shown as deleted account.",
+  "Public score history may stay visible even if your account is deleted, but deleted accounts are shown as Deleted Account.",
 ]
 
 export default function TermsPage() {
@@ -87,7 +87,7 @@ export default function TermsPage() {
             Deactivation is reversible. A deactivated account is hidden from normal player listings and can be reactivated by logging in with Discord again.
           </p>
           <p>
-            Deletion is permanent for account/login data. It removes Discord login data and sessions, logs you out, and changes public player information to deleted account. Public submissions, scores, and videos stay available.
+            Deletion is permanent for account/login data. It removes Discord login data and sessions, logs you out, and changes public player information to Deleted Account. Public submissions, scores, PBs, WRs, and proof videos stay available.
           </p>
         </div>
       </SectionCard>

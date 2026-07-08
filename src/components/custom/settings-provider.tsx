@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, createContext, useContext } from "react"
 import Link from "next/link"
-import { Settings2Icon, Trash2Icon, UserXIcon } from "lucide-react"
+import { LogOutIcon, Settings2Icon, Trash2Icon, UserPenIcon, UserXIcon } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,9 +87,10 @@ export function useSettings() {
   return useContext(SettingsContext)
 }
 
-export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) {
+export function FloatingSettingsModal({ user, onLogout }: { user?: SettingsUser | null; onLogout?: () => void }) {
   const settings = useSettings()
   const [updatingScore, setUpdatingScore] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteText, setDeleteText] = useState("")
@@ -112,6 +113,34 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
     }).catch(() => null)
 
     setUpdatingScore(false)
+  }
+
+  const logout = async () => {
+    if (loggingOut) {
+      return
+    }
+
+    setLoggingOut(true)
+    setAccountError(null)
+
+    try {
+      const response = await fetch(apiV1("/auth/logout"), {
+        method: "POST",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as { error?: { message?: string } } | null
+        throw new Error(json?.error?.message || "Logout failed")
+      }
+
+      window.localStorage.removeItem("player_uuid")
+      onLogout?.()
+      window.location.assign("/")
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : "Logout failed")
+      setLoggingOut(false)
+    }
   }
 
   const runAccountAction = async (action: "deactivate" | "delete") => {
@@ -217,9 +246,19 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
                 {accountError ? <p className="text-xs text-destructive">{accountError}</p> : null}
 
                 <div className="grid gap-2 sm:grid-cols-2">
+                  <Button type="button" variant="outline" size="sm" disabled>
+                    <UserPenIcon />
+                    Change username
+                  </Button>
+
+                  <Button type="button" variant="outline" size="sm" disabled={loggingOut || deactivating || deleting} onClick={logout}>
+                    <LogOutIcon />
+                    {loggingOut ? "Logging out..." : "Log out"}
+                  </Button>
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm" disabled={deactivating || deleting}>
+                      <Button type="button" variant="outline" size="sm" disabled={loggingOut || deactivating || deleting}>
                         <UserXIcon />
                         Deactivate
                       </Button>
@@ -256,7 +295,7 @@ export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) 
                     }}
                   >
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="destructive" size="sm" disabled={deactivating || deleting}>
+                      <Button type="button" variant="destructive" size="sm" disabled={loggingOut || deactivating || deleting}>
                         <Trash2Icon />
                         Delete
                       </Button>

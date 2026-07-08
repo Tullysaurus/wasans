@@ -198,7 +198,6 @@ export function FloatingSettingsModal({ user, onLogout }: { user?: SettingsUser 
       >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Control lightweight client-side preferences.</DialogDescription>
         </DialogHeader>
 
         <div className="rounded-lg border border-border/70 bg-muted/30 p-3">

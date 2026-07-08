@@ -1,5 +1,6 @@
 import "server-only"
 import { getCloudflareContext } from "@opennextjs/cloudflare" 
+import { ensurePlayerAvatarColumns } from "@/lib/server/player-avatar-schema"
 
 export type ApprovedHighScoreRun = {
   submission_uuid: string
@@ -531,12 +532,13 @@ export async function updateSubmissionThreadContent(
 export async function updateDiscordUsernameOnScoreChange(playerUuid: string, oldScore = 0) {
   try {
     const { env } = await getCloudflareContext({ async: true })
+    await ensurePlayerAvatarColumns(env.wasans)
     const row = await env.wasans.prepare(
-      `SELECT player_id, score, player_name FROM players WHERE uuid = ?`)
+      `SELECT player_id, score, player_name, account_status FROM players WHERE uuid = ?`)
       .bind(playerUuid)
-      .first<{ player_id: string, score: number, player_name: string }>()
+      .first<{ player_id: string, score: number, player_name: string, account_status?: string | null }>()
 
-    if (!row) {
+    if (!row || (row.account_status || "active") !== "active") {
       return
     }
 

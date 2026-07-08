@@ -3,6 +3,7 @@ import type { AuthUser } from "@/lib/server/auth"
 import { canModerate } from "@/lib/server/auth"
 import { insertAuditLog } from "@/lib/server/audit"
 import type { AuditAction } from "@/lib/server/audit"
+import { ensurePlayerAvatarColumns } from "@/lib/server/player-avatar-schema"
 import { refreshAllPlayerScores, refreshPlayerScore } from "@/lib/server/player-scores"
 import { refreshPlayerPbs } from "@/lib/server/pbs"
 import { refreshWorldRecords } from "@/lib/server/wrs"
@@ -91,6 +92,8 @@ export async function resolveModeratorUser(request: Request, env: CloudflareEnv,
     return botModeratorUser
   }
 
+  await ensurePlayerAvatarColumns(env.wasans)
+
   const account = await env.wasans.prepare(
     `SELECT player_uuid
      FROM oauth_accounts
@@ -116,6 +119,7 @@ export async function resolveModeratorUser(request: Request, env: CloudflareEnv,
        ON oauth_accounts.player_uuid = players.uuid
        AND oauth_accounts.provider = 'discord'
      WHERE players.uuid = ?
+       AND COALESCE(players.account_status, 'active') = 'active'
      ORDER BY oauth_accounts.updated_at DESC
      LIMIT 1`
   )

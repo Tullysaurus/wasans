@@ -5,6 +5,7 @@ import {
   getDiscordRedirectUri,
 } from "@/lib/server/discord-oauth"
 import { ensurePlayerAvatarColumns } from "@/lib/server/player-avatar-schema"
+import { legalVersion } from "@/lib/legal"
 import { generateUUID } from "@/lib/utils"
 
 type DiscordTokenResponse = {
@@ -126,7 +127,8 @@ async function findOrCreatePlayer(db: D1Database, discordUser: DiscordUserRespon
      FROM oauth_accounts
      JOIN players ON players.uuid = oauth_accounts.player_uuid
      WHERE oauth_accounts.provider = 'discord'
-       AND oauth_accounts.provider_account_id = ?`
+       AND oauth_accounts.provider_account_id = ?
+       AND COALESCE(players.account_status, 'active') != 'deleted'`
   )
     .bind(discordUser.id)
     .first<PlayerAuthRow>()
@@ -134,12 +136,14 @@ async function findOrCreatePlayer(db: D1Database, discordUser: DiscordUserRespon
   let player = linkedPlayer ?? await db.prepare(
     `SELECT uuid, player_id, discord_avatar, discord_discriminator, player_name, score, permission
      FROM players
-     WHERE player_id = ?`
+     WHERE player_id = ?
+       AND COALESCE(account_status, 'active') != 'deleted'`
   )
     .bind(discordUser.id)
     .first<PlayerAuthRow>()
 
   const now = Math.floor(Date.now() / 1000)
+  const acceptedAt = String(now)
   const accessTokenExpiresAt = String(now + token.expires_in)
 
   if (!player) {
@@ -150,10 +154,13 @@ async function findOrCreatePlayer(db: D1Database, discordUser: DiscordUserRespon
 
     const playerUuid = generateUUID()
     await db.prepare(
-      `INSERT INTO players (uuid, player_id, discord_avatar, discord_discriminator, player_name, date_joined, permission)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO players (
+        uuid, player_id, discord_avatar, discord_discriminator, player_name, date_joined, permission,
+        account_status, legal_terms_accepted_at, legal_privacy_accepted_at, legal_version
+      )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(playerUuid, discordUser.id, discordUser.avatar || null, discordUser.discriminator || null, playerName, String(now), 0)
+      .bind(playerUuid, discordUser.id, discordUser.avatar || null, discordUser.discriminator || null, playerName, String(now), 0, "active", acceptedAt, acceptedAt, legalVersion)
       .run()
 
     player = {
@@ -169,10 +176,16 @@ async function findOrCreatePlayer(db: D1Database, discordUser: DiscordUserRespon
     await db.prepare(
       `UPDATE players
        SET discord_avatar = ?,
-           discord_discriminator = ?
+           discord_discriminator = ?,
+           account_status = 'active',
+           deactivated_at = NULL,
+           deleted_at = NULL,
+           legal_terms_accepted_at = ?,
+           legal_privacy_accepted_at = ?,
+           legal_version = ?
        WHERE uuid = ?`
     )
-      .bind(discordUser.avatar || null, discordUser.discriminator || null, player.uuid)
+      .bind(discordUser.avatar || null, discordUser.discriminator || null, acceptedAt, acceptedAt, legalVersion, player.uuid)
       .run()
 
     player.discord_avatar = discordUser.avatar || null

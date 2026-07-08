@@ -1,7 +1,19 @@
 "use client"
 
 import { useEffect, useMemo, useState, createContext, useContext } from "react"
-import { Settings2Icon } from "lucide-react"
+import Link from "next/link"
+import { Settings2Icon, Trash2Icon, UserXIcon } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -18,6 +30,11 @@ import { apiV1 } from "@/lib/api"
 type SettingsContextValue = {
   disableSubmissionThumbnails: boolean
   setDisableSubmissionThumbnails: (value: boolean) => void
+}
+
+type SettingsUser = {
+  uuid: string
+  player_name: string
 }
 
 const STORAGE_KEY = "wasans:ui-settings:v1"
@@ -68,9 +85,12 @@ export function useSettings() {
   return useContext(SettingsContext)
 }
 
-export function FloatingSettingsModal() {
+export function FloatingSettingsModal({ user }: { user?: SettingsUser | null }) {
   const settings = useSettings()
   const [updatingScore, setUpdatingScore] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [accountError, setAccountError] = useState<string | null>(null)
 
   if (!settings) {
     return null
@@ -91,6 +111,39 @@ export function FloatingSettingsModal() {
     setUpdatingScore(false)
   }
 
+  const runAccountAction = async (action: "deactivate" | "delete") => {
+    if ((action === "deactivate" && deactivating) || (action === "delete" && deleting)) {
+      return
+    }
+
+    setAccountError(null)
+
+    if (action === "deactivate") {
+      setDeactivating(true)
+    } else {
+      setDeleting(true)
+    }
+
+    try {
+      const response = await fetch(apiV1(action === "deactivate" ? "/account/deactivate" : "/account"), {
+        method: action === "deactivate" ? "POST" : "DELETE",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as { error?: { message?: string } } | null
+        throw new Error(json?.error?.message || "Account update failed")
+      }
+
+      window.localStorage.removeItem("player_uuid")
+      window.location.assign("/")
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : "Account update failed")
+      setDeactivating(false)
+      setDeleting(false)
+    }
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -101,7 +154,7 @@ export function FloatingSettingsModal() {
       </DialogTrigger>
 
       <DialogContent
-        className="w-[calc(100%-2rem)] max-w-sm"
+        className="w-[calc(100%-2rem)] max-w-md"
         showCloseButton
       >
         <DialogHeader>
@@ -124,23 +177,106 @@ export function FloatingSettingsModal() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Update score</p>
-              <p className="text-xs text-muted-foreground">Recalculate from your personal bests.</p>
+        {user ? (
+          <>
+            <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Update score</p>
+                  <p className="text-xs text-muted-foreground">Recalculate from your personal bests.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={updatingScore}
+                  onClick={updateScore}
+                >
+                  Update score
+                </Button>
+              </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={updatingScore}
-              onClick={updateScore}
-            >
-              Update score
-            </Button>
-          </div>
-        </div>
+
+            <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Account</p>
+                  <p className="text-xs text-muted-foreground">Logged in as {user.player_name}.</p>
+                </div>
+
+                {accountError ? <p className="text-xs text-destructive">{accountError}</p> : null}
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="outline" size="sm" disabled={deactivating || deleting}>
+                        <UserXIcon />
+                        Deactivate
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent size="sm">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Deactivate account?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This hides your account from player lists and logs you out. Logging in with Discord again reactivates it.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deactivating}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={deactivating}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            void runAccountAction("deactivate")
+                          }}
+                        >
+                          Deactivate
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive" size="sm" disabled={deactivating || deleting}>
+                        <Trash2Icon />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent size="sm">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete account?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This is permanent. Discord login data is removed, but public submissions, scores, and videos stay as deleted account.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          disabled={deleting}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            void runAccountAction("delete")
+                          }}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                <p className="text-[11px] leading-5 text-muted-foreground">
+                  See the{" "}
+                  <Link href="/terms" className="underline underline-offset-3">Terms</Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="underline underline-offset-3">Privacy Policy</Link>.
+                </p>
+              </div>
+            </div>
+          </>
+        ) : null}
       </DialogContent>
     </Dialog>
   )

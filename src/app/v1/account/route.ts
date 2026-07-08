@@ -36,7 +36,7 @@ export async function PATCH(request: Request) {
 
   const rate = await enforceRateLimit(env.wasans, getRateLimitKey(request, "v1:account:username", user.uuid), {
     limit: 1,
-    windowSeconds: 60 * 60 * 24,
+    windowSeconds: 60 * 60,
   })
 
   if (!rate.allowed) {

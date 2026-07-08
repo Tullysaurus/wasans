@@ -50,7 +50,11 @@ type SettingsUser = {
 type AccountResponse = {
   user?: SettingsUser
   error?: {
+    code?: string
     message?: string
+    details?: {
+      retry_after?: number
+    } | null
   }
 }
 
@@ -66,6 +70,22 @@ type RateLimitResponse = {
 const STORAGE_KEY = "wasans:ui-settings:v1"
 
 const SettingsContext = createContext<SettingsContextValue | null>(null)
+
+function formatCooldown(value: number) {
+  const seconds = Number.isFinite(value) && value > 0 ? Math.ceil(value) : 60
+
+  if (seconds >= 3600) {
+    const hours = Math.ceil(seconds / 3600)
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`
+  }
+
+  if (seconds >= 60) {
+    const minutes = Math.ceil(seconds / 60)
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`
+  }
+
+  return `${seconds} ${seconds === 1 ? "second" : "seconds"}`
+}
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [disableSubmissionThumbnails, setDisableSubmissionThumbnails] = useState(() => {
@@ -204,6 +224,11 @@ export function FloatingSettingsModal({
       const json = (await response.json().catch(() => null)) as AccountResponse | null
 
       if (!response.ok) {
+        if (response.status === 429 && json?.error?.code === "rate_limited") {
+          const wait = Number(json?.error?.details?.retry_after ?? response.headers.get("retry-after") ?? 60 * 60)
+          throw new Error(`You can change your username again in ${formatCooldown(wait)}.`)
+        }
+
         throw new Error(json?.error?.message || "Username update failed")
       }
 

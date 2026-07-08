@@ -5,7 +5,9 @@ import {
   getDiscordRedirectUri,
 } from "@/lib/server/discord-oauth"
 import { ensurePlayerAvatarColumns } from "@/lib/server/player-avatar-schema"
+import { getAvailablePlayerName } from "@/lib/server/player-name-service"
 import { legalVersion } from "@/lib/legal"
+import { normalizeLoginPlayerName } from "@/lib/player-name"
 import { generateUUID } from "@/lib/utils"
 
 type DiscordTokenResponse = {
@@ -58,19 +60,6 @@ function getSafeNextUrl(value: string | null) {
   }
 
   return value
-}
-
-function normalizePlayerName(value: unknown) {
-  if (typeof value !== "string") {
-    return null
-  }
-
-  const playerName = value.trim().replace(/\s+/g, " ")
-  if (playerName.length < 2 || playerName.length > 32) {
-    return null
-  }
-
-  return playerName
 }
 
 function redirectWithAuthError(requestUrl: URL, message: string) {
@@ -147,10 +136,11 @@ async function findOrCreatePlayer(db: D1Database, discordUser: DiscordUserRespon
   const accessTokenExpiresAt = String(now + token.expires_in)
 
   if (!player) {
-    const playerName = normalizePlayerName(discordUser.global_name || discordUser.username)
-    if (!playerName) {
+    const basePlayerName = normalizeLoginPlayerName(discordUser.global_name || discordUser.username)
+    if (!basePlayerName) {
       throw new Error("Discord username is not valid")
     }
+    const playerName = await getAvailablePlayerName(db, basePlayerName)
 
     const playerUuid = generateUUID()
     await db.prepare(

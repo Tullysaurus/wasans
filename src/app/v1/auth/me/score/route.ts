@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   }
 
   const rate = await enforceRateLimit(env.wasans, getRateLimitKey(request, "v1:auth:me:score", user.uuid), {
-    limit: 10,
+    limit: 1,
     windowSeconds: 60,
   })
 

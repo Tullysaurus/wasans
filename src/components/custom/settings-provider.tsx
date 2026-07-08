@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, createContext, useContext } from "react"
 import Link from "next/link"
-import { LogOutIcon, Settings2Icon, Trash2Icon, UserPenIcon, UserXIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { CheckIcon, LogOutIcon, Settings2Icon, Trash2Icon, UserPenIcon, UserXIcon, XIcon } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +30,7 @@ import { SidebarMenuButton } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
 import { accountDeletePhrase } from "@/lib/account-deletion"
 import { apiV1 } from "@/lib/api"
+import { validatePlayerName } from "@/lib/player-name"
 
 type SettingsContextValue = {
   disableSubmissionThumbnails: boolean
@@ -36,7 +39,28 @@ type SettingsContextValue = {
 
 type SettingsUser = {
   uuid: string
+  player_id: string
+  discord_avatar?: string | null
+  discord_discriminator?: string | null
   player_name: string
+  score: number
+  permission: number
+}
+
+type AccountResponse = {
+  user?: SettingsUser
+  error?: {
+    message?: string
+  }
+}
+
+type RateLimitResponse = {
+  error?: {
+    code?: string
+    details?: {
+      retry_after?: number
+    } | null
+  }
 }
 
 const STORAGE_KEY = "wasans:ui-settings:v1"
@@ -87,9 +111,21 @@ export function useSettings() {
   return useContext(SettingsContext)
 }
 
-export function FloatingSettingsModal({ user, onLogout }: { user?: SettingsUser | null; onLogout?: () => void }) {
+export function FloatingSettingsModal({
+  user,
+  onLogout,
+  onUserUpdate,
+}: {
+  user?: SettingsUser | null
+  onLogout?: () => void
+  onUserUpdate?: (user: SettingsUser) => void
+}) {
+  const router = useRouter()
   const settings = useSettings()
   const [updatingScore, setUpdatingScore] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [savingName, setSavingName] = useState(false)
+  const [playerName, setPlayerName] = useState("")
   const [loggingOut, setLoggingOut] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -107,12 +143,80 @@ export function FloatingSettingsModal({ user, onLogout }: { user?: SettingsUser 
 
     setUpdatingScore(true)
 
-    await fetch(apiV1("/auth/me/score"), {
+    const response = await fetch(apiV1("/auth/me/score"), {
       method: "POST",
       cache: "no-store",
     }).catch(() => null)
 
+    if (response?.status === 429) {
+      const json = (await response.json().catch(() => null)) as RateLimitResponse | null
+      const wait = Number(json?.error?.details?.retry_after ?? response.headers.get("retry-after") ?? 60)
+      const seconds = Number.isFinite(wait) && wait > 0 ? Math.ceil(wait) : 60
+
+      toast.warning(`Ratelimit, try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}`)
+    }
+
     setUpdatingScore(false)
+  }
+
+  const startNameEdit = () => {
+    setPlayerName(user?.player_name || "")
+    setEditingName(true)
+    setAccountError(null)
+  }
+
+  const cancelNameEdit = () => {
+    setPlayerName(user?.player_name || "")
+    setEditingName(false)
+    setAccountError(null)
+  }
+
+  const saveName = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!user || savingName) {
+      return
+    }
+
+    const name = validatePlayerName(playerName)
+    if (!name.ok) {
+      setAccountError(name.message)
+      return
+    }
+
+    if (name.playerName === user.player_name) {
+      setPlayerName(name.playerName)
+      setEditingName(false)
+      setAccountError(null)
+      return
+    }
+
+    setSavingName(true)
+    setAccountError(null)
+
+    try {
+      const response = await fetch(apiV1("/account"), {
+        method: "PATCH",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ player_name: playerName }),
+      })
+      const json = (await response.json().catch(() => null)) as AccountResponse | null
+
+      if (!response.ok) {
+        throw new Error(json?.error?.message || "Username update failed")
+      }
+
+      const nextUser = json?.user || { ...user, player_name: name.playerName }
+      onUserUpdate?.(nextUser)
+      setPlayerName(nextUser.player_name)
+      setEditingName(false)
+      router.refresh()
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : "Username update failed")
+    } finally {
+      setSavingName(false)
+    }
   }
 
   const logout = async () => {
@@ -244,20 +348,47 @@ export function FloatingSettingsModal({ user, onLogout }: { user?: SettingsUser 
 
                 {accountError ? <p className="text-xs text-destructive">{accountError}</p> : null}
 
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Button type="button" variant="outline" size="sm" disabled>
-                    <UserPenIcon />
-                    Change username
-                  </Button>
+                {editingName ? (
+                  <form className="grid gap-2" onSubmit={saveName}>
+                    <label className="grid gap-1.5 text-sm">
+                      <span className="text-xs text-muted-foreground">Username</span>
+                      <Input
+                        value={playerName}
+                        onChange={(event) => setPlayerName(event.target.value)}
+                        disabled={savingName}
+                        autoComplete="nickname"
+                        aria-invalid={Boolean(accountError)}
+                      />
+                    </label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button type="submit" size="sm" disabled={savingName}>
+                        <CheckIcon />
+                        {savingName ? "Saving..." : "Save"}
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" disabled={savingName} onClick={cancelNameEdit}>
+                        <XIcon />
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                ) : null}
 
-                  <Button type="button" variant="outline" size="sm" disabled={loggingOut || deactivating || deleting} onClick={logout}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {!editingName ? (
+                    <Button type="button" variant="outline" size="sm" disabled={loggingOut || deactivating || deleting} onClick={startNameEdit}>
+                      <UserPenIcon />
+                      Change username
+                    </Button>
+                  ) : null}
+
+                  <Button type="button" variant="outline" size="sm" disabled={savingName || loggingOut || deactivating || deleting} onClick={logout}>
                     <LogOutIcon />
                     {loggingOut ? "Logging out..." : "Log out"}
                   </Button>
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm" disabled={loggingOut || deactivating || deleting}>
+                      <Button type="button" variant="outline" size="sm" disabled={savingName || loggingOut || deactivating || deleting}>
                         <UserXIcon />
                         Deactivate
                       </Button>
@@ -294,7 +425,7 @@ export function FloatingSettingsModal({ user, onLogout }: { user?: SettingsUser 
                     }}
                   >
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="destructive" size="sm" disabled={loggingOut || deactivating || deleting}>
+                      <Button type="button" variant="destructive" size="sm" disabled={savingName || loggingOut || deactivating || deleting}>
                         <Trash2Icon />
                         Delete
                       </Button>

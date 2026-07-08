@@ -266,7 +266,7 @@ export function AppSidebar() {
       <SidebarFooter className="gap-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <FloatingSettingsModal user={user} onLogout={() => setUser(null)} />
+            <FloatingSettingsModal user={user} onLogout={() => setUser(null)} onUserUpdate={setUser} />
           </SidebarMenuItem>
         </SidebarMenu>
 

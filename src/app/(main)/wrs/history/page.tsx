@@ -248,16 +248,6 @@ export default function WorldRecordHistoryPage() {
     <PageShell>
       <div className="sticky top-14 z-30 rounded-3xl border border-border/60 bg-background/80 p-4 backdrop-blur-xl md:top-0">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <HistoryIcon className="size-4 text-(--page-accent)" />
-              <h1 className="text-sm font-semibold tracking-tight">World Record History</h1>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {filteredRecords.length} of {records.length} past records
-            </p>
-          </div>
-
           <Input
             type="search"
             value={searchQuery}

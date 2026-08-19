@@ -35,16 +35,12 @@ type HistoryResponse = {
   results: HistoryRow[]
 }
 
-type WorldRecordsResponse = {
-  results: Submission[]
-}
-
 type CachedHistory = {
   results: Submission[]
   timestamp: number
 }
 
-const HISTORY_CACHE_KEY = "wasans_wr_history_cache"
+const HISTORY_CACHE_KEY = "wasans_wr_history_cache_v2"
 const submissionUuidListKey = "submission_uuids"
 
 function formatTime(rawTime: number | string) {
@@ -112,7 +108,6 @@ function storeCachedHistory(results: Submission[]) {
 export default function WorldRecordHistoryPage() {
   const router = useRouter()
   const [records, setRecords] = useState<Submission[]>([])
-  const [wrIds, setWrIds] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -143,7 +138,7 @@ export default function WorldRecordHistoryPage() {
 
   useEffect(() => {
     // Trials are fetched in their canonical order so the flattened list stays
-    // grouped by trial, with each trial's records newest first.
+    // grouped by trial, with each trial's past records newest first.
     const fetchHistory = async (cachedResults: Submission[] | null) => {
       const entries = await Promise.all(
         trials.map(async (trial) => {
@@ -157,7 +152,10 @@ export default function WorldRecordHistoryPage() {
             }
 
             const json = (await response.json()) as HistoryResponse
-            return (json.results || []).map(toSubmission).reverse()
+            // The endpoint returns the record chain oldest first, so after
+            // reversing the first entry is the record that still stands. That
+            // one lives on the World Records page, so drop it here.
+            return (json.results || []).map(toSubmission).reverse().slice(1)
           } catch (err) {
             console.error(err)
             return null
@@ -177,20 +175,6 @@ export default function WorldRecordHistoryPage() {
       storeCachedHistory(results)
     }
 
-    const fetchWorldRecords = async () => {
-      try {
-        const response = await fetch(apiV1("/records/world"), { cache: "no-cache" })
-        if (!response.ok) {
-          return
-        }
-
-        const json = (await response.json()) as WorldRecordsResponse
-        setWrIds(new Set((json.results || []).map((record) => record.submission_uuid)))
-      } catch (err) {
-        console.error(err)
-      }
-    }
-
     const load = async () => {
       const cachedResults = loadCachedHistory()
 
@@ -200,7 +184,7 @@ export default function WorldRecordHistoryPage() {
       }
 
       try {
-        await Promise.all([fetchHistory(cachedResults), fetchWorldRecords()])
+        await fetchHistory(cachedResults)
       } finally {
         setLoading(false)
       }
@@ -254,7 +238,7 @@ export default function WorldRecordHistoryPage() {
     return (
       <PageShell>
         <div className="rounded-3xl border border-border/60 bg-background/55 p-6 text-sm text-muted-foreground backdrop-blur-xl">
-          No world records have been set yet.
+          No world record has been beaten yet. A trial shows up here once its record changes hands.
         </div>
       </PageShell>
     )
@@ -270,7 +254,7 @@ export default function WorldRecordHistoryPage() {
               <h1 className="text-sm font-semibold tracking-tight">World Record History</h1>
             </div>
             <p className="text-xs text-muted-foreground">
-              {filteredRecords.length} of {records.length} records
+              {filteredRecords.length} of {records.length} past records
             </p>
           </div>
 
@@ -288,7 +272,7 @@ export default function WorldRecordHistoryPage() {
       <SubmissionList className="submissions-grid">
         {filteredRecords.length === 0 ? (
           <div className="flex min-h-48 w-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-background/40 backdrop-blur-xl">
-            <p className="text-muted-foreground">No matching world records</p>
+            <p className="text-muted-foreground">No matching past world records</p>
           </div>
         ) : (
           filteredRecords.map((record) => (
@@ -305,7 +289,6 @@ export default function WorldRecordHistoryPage() {
               playerDiscordDiscriminator={record.discord_discriminator}
               dateText={formatDate(record.date)}
               state="approved"
-              isWr={wrIds.has(record.submission_uuid)}
               moderatorNote={record.moderator_note}
               moderatorUsername={record.moderator_username}
               className="h-full cursor-pointer overflow-hidden border-border/60 bg-background/55 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_24px_52px_-34px_rgba(0,0,0,0.85)]"

@@ -281,8 +281,8 @@ export function AppSidebar() {
                   pathname={pathname}
                   matchExact={Boolean(item.children?.length)}
                 />
-                {item.children?.length ? (
-                  <SidebarMenuSub>
+                {item.children?.length && isRouteActive(pathname, item.href) ? (
+                  <SidebarMenuSub className="animate-subtle-in">
                     {item.children.map((child) => (
                       <SidebarNavSubItem key={child.href} item={child} pathname={pathname} />
                     ))}

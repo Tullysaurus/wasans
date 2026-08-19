@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { MedalIcon } from "lucide-react"
 import { apiV1 } from "@/lib/api"
 import { trials } from "@/lib/trials"
 import { SubmissionCard } from "@/components/custom/submission-card"
@@ -242,6 +243,13 @@ export default function SubmissionsPage() {
       <PageHeader title="World Records" />
 
       <div className="sticky top-14 z-30 rounded-3xl border border-border/60 bg-background/80 p-4 backdrop-blur-xl md:top-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <MedalIcon className="size-4 text-(--page-accent)" />
+            <h1 className="text-sm font-semibold tracking-tight">World Records</h1>
+          </div>
+        </div>
+        
         <Input
           type="search"
           value={searchQuery}
